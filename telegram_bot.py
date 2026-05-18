@@ -69,14 +69,13 @@ def handle_message(message):
         if "време" in user_text.lower() or "времето" in user_text.lower():
             real_weather = get_weather_data()
             system_content += f"\n\nВАЖНО: Използвай следните реални данни, за да отговориш на въпроса за времето:\n{real_weather}"
-
-        # Извикване на Groq с Mixtral/Hermes модела
+# Извикване на Groq с Qwen за по-добър български
         chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
             ],
-            model="mixtral-8x7b-32768",  # Настройка за модел без тежка цензура
+            model="qwen/qwen3-32b",  # <--- Сложи това
         )
         
         response = chat_completion.choices[0].message.content
