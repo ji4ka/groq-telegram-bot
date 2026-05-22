@@ -4,25 +4,27 @@ import telebot
 import requests
 import threading
 from flask import Flask
-from groq import Groq
+import google.generativeai as genai  # Новата библиотека на Google
 
 # Инициализиране на Flask (уеб сървър за Render)
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Ботът е онлайн и работи с Qwen мозък! 🇨🇳🧠", 200
+    return "Ботът е онлайн и работи с Google Gemini мозък! 🍏🧠", 200
 
 # Вземане на токените от Environment Variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not TELEGRAM_BOT_TOKEN or not GROQ_API_KEY:
-    print("ГРЕШКА: Липсват API ключове in Render!", file=sys.stderr)
+if not TELEGRAM_BOT_TOKEN or not GEMINI_API_KEY:
+    print("ГРЕШКА: Липсват API ключове в Render!", file=sys.stderr)
     sys.exit(1)
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-client = Groq(api_key=GROQ_API_KEY)
+
+# Конфигуриране на Google Gemini
+genai.configure(api_key=GEMINI_API_KEY)
 
 # Функция за времето във Франкфурт
 def get_weather_data(city="Frankfurt"):
@@ -44,9 +46,9 @@ def get_weather_data(city="Frankfurt"):
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "Здравей! Аз съм супер бърз AI бот, задвижван от Groq и китайския Qwen! ⚡🤖")
+    bot.reply_to(message, "Здравей! Аз съм супер бърз AI бот, задвижван от Google Gemini! Вече говоря перфектен български. ⚡🤖")
 
-# 1. ОБРАБОТЧИК: Бърза реакция при "Добро утро" (без хабене на токени от Groq)
+# 1. ОБРАБОТЧИК: Бърза реакция при "Добро утро"
 @bot.message_handler(func=lambda message: message.text and "добро утро" in message.text.lower())
 def reply_good_morning(message):
     try:
@@ -56,7 +58,7 @@ def reply_good_morning(message):
     except Exception as e:
         print(f"Грешка при поздрава: {e}")
 
-# 2. ОСНОВЕН ОБРАБОТЧИК: Големият изкуствен интелект
+# 2. ОСНОВЕН ОБРАБОТЧИК: Големият изкуствен интелект на Google
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     try:
@@ -73,13 +75,11 @@ def handle_message(message):
         bot.send_chat_action(message.chat.id, 'typing')
         user_text = message.text.replace(f"@{bot_username}", "").strip() if message.text else ""
 
-        # СТРИКТНИ ИНСТРУКЦИИ ЗА ПЕРФЕКТЕН БЪЛГАРСКИ ЕЗИК
+        # Инструкции за характера и езика
         system_content = (
-            "Ти си интелигентен AI асистент с перфектен изказ на български език.\n"
-            "ПРАВИЛА ЗА ЕЗИКА:\n"
-            "1. Говори на ПЕРФЕКТЕН, ЕСТЕСТВЕН български език. Избягвай буквален превод от английски.\n"
-            "2. Внимавай за граматически грешки, падежни форми, правилно използване на пълен/кратък член и предлози.\n"
-            "3. Преди да изпратиш отговора, провери наум дали звучи правилно за роден български говорител."
+            "Ти си интелигентен, свободен и изключително полезен AI асистент.\n"
+            "ГОВОРИ ВИНАГИ НА ПЕРФЕКТЕН БЪЛГАРСКИ ЕЗИК. Използвай естествен изказ, "
+            "правилна граматика и избягвай буквални преводи от английски."
         )
         
         # Проверка за времето
@@ -87,16 +87,16 @@ def handle_message(message):
             real_weather = get_weather_data()
             system_content += f"\n\nВАЖНО: Използвай следните реални данни, за да отговориш на въпроса за времето:\n{real_weather}"
 
-        # Извикване на Groq с модела Qwen
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_text}
-            ],
-            model="qwen/qwen3-32b",  # <--- Моделът на Alibaba
+        # Стартиране на модела на Google с вградените системни инструкции
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system_content
         )
         
-        response = chat_completion.choices[0].message.content
+        # Генериране на отговор
+        response_api = model.generate_content(user_text)
+        response = response_api.text
+        
         bot.reply_to(message, response)
         
     except Exception as e:
