@@ -4,14 +4,15 @@ import telebot
 import requests
 import threading
 from flask import Flask
-import google.generativeai as genai  # Новата библиотека на Google
+from google import genai  # Модерната библиотека на Google
+from google.genai import types
 
 # Инициализиране на Flask (уеб сървър за Render)
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Ботът е онлайн и работи с Google Gemini мозък! 🍏🧠", 200
+    return "Ботът е онлайн и работи с модерния Google GenAI! 🍏🧠", 200
 
 # Вземане на токените от Environment Variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -23,8 +24,8 @@ if not TELEGRAM_BOT_TOKEN or not GEMINI_API_KEY:
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Конфигуриране на Google Gemini
-genai.configure(api_key=GEMINI_API_KEY)
+# Новият начин за инициализация на Google Клиента
+ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Функция за времето във Франкфурт
 def get_weather_data(city="Frankfurt"):
@@ -46,7 +47,7 @@ def get_weather_data(city="Frankfurt"):
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "Здравей! Аз съм супер бърз AI бот, задвижван от Google Gemini! Вече говоря перфектен български. ⚡🤖")
+    bot.reply_to(message, "Здравей! Аз съм супер бърз AI бот, задвижван от новия Google Gemini 2.0! Вече говоря перфектен български. ⚡🤖")
 
 # 1. ОБРАБОТЧИК: Бърза реакция при "Добро утро"
 @bot.message_handler(func=lambda message: message.text and "добро утро" in message.text.lower())
@@ -58,7 +59,7 @@ def reply_good_morning(message):
     except Exception as e:
         print(f"Грешка при поздрава: {e}")
 
-# 2. ОСНОВЕН ОБРАБОТЧИК: Големият изкуствен интелект на Google
+# 2. ОСНОВЕН ОБРАБОТЧИК: Модерният изкуствен интелект на Google
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     try:
@@ -87,28 +88,30 @@ def handle_message(message):
             real_weather = get_weather_data()
             system_content += f"\n\nВАЖНО: Използвай следните реални данни, за да отговориш на въпроса за времето:\n{real_weather}"
 
-        # Стартиране на модела на Google с вградените системни инструкции
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_content
+        # Генериране на съдържание чрез новия SDK синтаксис за Gemini 2.0
+        response_api = ai_client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=user_text,
+            config=types.GenerateContentConfig(
+                system_instruction=system_content,
+            ),
         )
         
-        # Генериране на отговор
-        response_api = model.generate_content(user_text)
         response = response_api.text
-        
         bot.reply_to(message, response)
         
     except Exception as e:
         bot.reply_to(message, f"Опа, възникна грешка: {str(e)}")
 
-# Пускане на бот процеса при първата уеб заявка от Render
-@app.before_request
-def start_bot_polling():
-    if not hasattr(app, 'bot_started'):
-        print("Стартиране на Telegram инстанцията...")
-        threading.Thread(target=bot.infinity_polling, daemon=True).start()
-        app.bot_started = True
+# Безопасно стартиране на Telegram в отделна нишка
+def run_bot():
+    print("Стартиране на Telegram инстанцията...")
+    try:
+        bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    except Exception as e:
+        print(f"Полингът спря: {e}")
+
+threading.Thread(target=run_bot, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
