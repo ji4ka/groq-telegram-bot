@@ -11,14 +11,14 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Ботът е онлайн и работи с OpenAI 120B мозък! 🧠", 200
+    return "Ботът е онлайн и работи с Qwen мозък! 🇨🇳🧠", 200
 
 # Вземане на токените от Environment Variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not TELEGRAM_BOT_TOKEN or not GROQ_API_KEY:
-    print("ГРЕШКА: Липсват API ключове в Render!", file=sys.stderr)
+    print("ГРЕШКА: Липсват API ключове in Render!", file=sys.stderr)
     sys.exit(1)
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
@@ -44,8 +44,19 @@ def get_weather_data(city="Frankfurt"):
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "Здравей! Аз съм супер бърз AI бот, задвижван от Groq и OpenAI 120B! Питай мне на български. ⚡🤖")
+    bot.reply_to(message, "Здравей! Аз съм супер бърз AI бот, задвижван от Groq и китайския Qwen! ⚡🤖")
 
+# 1. ОБРАБОТЧИК: Бърза реакция при "Добро утро" (без хабене на токени от Groq)
+@bot.message_handler(func=lambda message: message.text and "добро утро" in message.text.lower())
+def reply_good_morning(message):
+    try:
+        bot.send_chat_action(message.chat.id, 'typing')
+        morning_reply = "Добро утро! ☕ Желая ти прекрасен, успешен и много усмихнат ден! С какво мога да помогна днес? ☀️"
+        bot.reply_to(message, morning_reply)
+    except Exception as e:
+        print(f"Грешка при поздрава: {e}")
+
+# 2. ОСНОВЕН ОБРАБОТЧИК: Големият изкуствен интелект
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     try:
@@ -76,13 +87,13 @@ def handle_message(message):
             real_weather = get_weather_data()
             system_content += f"\n\nВАЖНО: Използвай следните реални данни, за да отговориш на въпроса за времето:\n{real_weather}"
 
-        # Извикване на Groq с мощния 120-милиарден модел на OpenAI
+        # Извикване на Groq с модела Qwen
         chat_completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_text}
             ],
-            model="openai/gpt-oss-120b",
+            model="qwen/qwen3-32b",  # <--- Моделът на Alibaba
         )
         
         response = chat_completion.choices[0].message.content
