@@ -90,7 +90,7 @@ def handle_message(message):
 
         # Генериране на съдържание чрез новия SDK синтаксис за Gemini 2.0
         response_api = ai_client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=user_text,
             config=types.GenerateContentConfig(
                 system_instruction=system_content,
