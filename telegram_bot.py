@@ -20,15 +20,19 @@ client = Groq(api_key=GROQ_API_KEY)
 @bot.message_handler(func=lambda message: True)
 def reply_to_message(message):
     try:
-        # Използваме новия актуален и супер бърз модел на Llama
+        # Използваме големия 70B модел + System съобщение за перфектен български
         chat_completion = client.chat.completions.create(
             messages=[
+                {
+                    "role": "system",
+                    "content": "Ти си интелигентен, любезен и полезен ИИ асистент. Отговаряш винаги на перфектен, граматически правилен, чист и напълно естествен български език. Отговаряш директно и точно на въпроса на потребителя, без излишни монолози, развалени фрази, диалекти или русизми."
+                },
                 {
                     "role": "user",
                     "content": message.text,
                 }
             ],
-            model="llama-3.1-8b-instant",  # Новият поддържан модел
+            model="llama-3.3-70b-versatile",  # Много по-интелигентен модел
         )
         response = chat_completion.choices[0].message.content
         bot.reply_to(message, response)
