@@ -20,7 +20,7 @@ client = Groq(api_key=GROQ_API_KEY)
 @bot.message_handler(func=lambda message: True)
 def reply_to_message(message):
     try:
-        # Използваме супер бързия Llama 3 модел през Groq
+        # Използваме новия актуален и супер бърз модел на Llama
         chat_completion = client.chat.completions.create(
             messages=[
                 {
@@ -28,7 +28,7 @@ def reply_to_message(message):
                     "content": message.text,
                 }
             ],
-            model="llama3-8b-8192",  # Бърз, стабилен и напълно безплатен
+            model="llama-3.1-8b-instant",  # Новият поддържан модел
         )
         response = chat_completion.choices[0].message.content
         bot.reply_to(message, response)
