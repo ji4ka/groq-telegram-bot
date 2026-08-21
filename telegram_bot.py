@@ -8,16 +8,14 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Ботът работи стабилно с автоматичен избор на модел!"
+    return "Ботът работи стабилно с интелигентен филтър на моделите!"
 
-# Вземаме токените от настройките на Render
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 
 bot = telebot.TeleBot(BOT_TOKEN)
 client = Groq(api_key=GROQ_API_KEY)
 
-# Памет за съобщенията
 conversations = {}
 
 SYSTEM_PROMPT = (
@@ -26,13 +24,20 @@ SYSTEM_PROMPT = (
     "Отговаряш директно и точно на въпроса на потребителя, без излишни монолози, развалени фрази, диалекти или русизми."
 )
 
-def get_active_model():
-    """Автоматично намира най-добрия и активен модел в акаунта."""
+def get_active_chat_model():
+    """Филтрира само валидни текстови чат модели, като игнорира Whisper, Canopylabs и др."""
     try:
         models_list = client.models.list()
-        active_ids = [m.id for m in models_list.data]
         
-        # Списък с предпочитани модели по приоритет
+        # Ключови думи за модели, които НЕ са за текстов чат
+        ignored_keywords = ['whisper', 'canopylabs', 'guard', 'vision', 'tts', 'embed', 'audio']
+        
+        chat_models = [
+            m.id for m in models_list.data 
+            if not any(keyword in m.id.lower() for keyword in ignored_keywords)
+        ]
+        
+        # Приоритетен списък с текстови модели
         preferred_order = [
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
@@ -41,16 +46,15 @@ def get_active_model():
         ]
         
         for model_id in preferred_order:
-            if model_id in active_ids:
+            if model_id in chat_models:
                 return model_id
         
-        # Ако никой от горните не е намерен, вземаме първия изобщо наличен
-        if active_ids:
-            return active_ids[0]
+        if chat_models:
+            return chat_models[0]
     except Exception as e:
         print(f"Грешка при проверка на моделите: {e}")
     
-    return "gemma2-9b-it"
+    return "llama-3.1-8b-instant"
 
 @bot.message_handler(func=lambda message: True)
 def reply_to_message(message):
@@ -61,13 +65,13 @@ def reply_to_message(message):
     
     conversations[chat_id].append({"role": "user", "content": message.text})
     
-    # Ограничаване на историята до последните 20 съобщения
-    if len(conversations[chat_id]) > 21:
-        conversations[chat_id] = [conversations[chat_id][0]] + conversations[chat_id][-20:]
+    # Ограничаваме паметта до системната инструкция + последните 10 съобщения,
+    # за да не надвишаваме лимита за дължина (context limit)
+    if len(conversations[chat_id]) > 11:
+        conversations[chat_id] = [conversations[chat_id][0]] + conversations[chat_id][-10:]
 
     try:
-        # Автоматично засичане на работещ модел
-        selected_model = get_active_model()
+        selected_model = get_active_chat_model()
         
         chat_completion = client.chat.completions.create(
             messages=conversations[chat_id],
@@ -81,7 +85,7 @@ def reply_to_message(message):
         bot.reply_to(message, f"Опа, възникна грешка: {str(e)}")
 
 def run_bot():
-    print("Стартиране на Telegram инстанцията през Groq с авто-модел...")
+    print("Стартиране на Telegram инстанцията...")
     try:
         bot.infinity_polling(timeout=10, long_polling_timeout=5)
     except Exception as e:
