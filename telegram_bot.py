@@ -17,7 +17,7 @@ GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 bot = telebot.TeleBot(BOT_TOKEN)
 client = Groq(api_key=GROQ_API_KEY)
 
-# Речник, в който ще пазим историята на съобщенията за всеки чат поотделно
+# Памет за съобщенията
 conversations = {}
 
 SYSTEM_PROMPT = (
@@ -30,26 +30,23 @@ SYSTEM_PROMPT = (
 def reply_to_message(message):
     chat_id = message.chat.id
     
-    # Ако този потребител пише за първи път, му създаваме нова история със системната инструкция
     if chat_id not in conversations:
         conversations[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
     
-    # Добавяме новото съобщение на потребителя в неговата история
     conversations[chat_id].append({"role": "user", "content": message.text})
     
-    # Ограничаваме историята до последните 20 реплики, за да не препълваме паметта
-    if len(conversations[chat_id]) > 21:  # 1 системно + 20 разменени съобщения
+    # Ограничаване на историята до последните 20 съобщения
+    if len(conversations[chat_id]) > 21:
         conversations[chat_id] = [conversations[chat_id][0]] + conversations[chat_id][-20:]
 
     try:
-        # Подаваме цялата история на разговорите към модела
+        # Използваме доказано активния модел
         chat_completion = client.chat.completions.create(
             messages=conversations[chat_id],
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
         )
         response = chat_completion.choices[0].message.content
         
-        # Записваме и отговора на бота в историята, за да го знае при следващото съобщение
         conversations[chat_id].append({"role": "assistant", "content": response})
         
         bot.reply_to(message, response)
@@ -64,7 +61,6 @@ def run_bot():
         print(f"Полингът спря: {e}")
 
 if __name__ == "__main__":
-    # Безопасно стартиране в отделна нишка
     threading.Thread(target=run_bot, daemon=True).start()
     
     port = int(os.environ.get("PORT", 10000))
